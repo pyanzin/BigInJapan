@@ -16,7 +16,7 @@ namespace BigSort.Generator {
 
             using (var file = File.Create(fileName))
             {
-                for (int i = 0; i < 200000; i++)
+                for (int i = 0; i < 2000000; i++)
                 {
                     var entry = GenerateEntry();
                     file.Write(entry, 0, entry.Length);
@@ -29,7 +29,7 @@ namespace BigSort.Generator {
 
         static byte[] GenerateEntry()
         {
-            var len = rnd.Next(64);
+            var len = rnd.Next(1, 64);
             var symbols = new byte[len];
             rnd.NextBytes(symbols);
 
