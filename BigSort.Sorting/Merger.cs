@@ -1,39 +1,110 @@
 ﻿namespace BigSort.Sorting
 {
-    public static class Merger
+    public class Merger
     {
-        public static void Merge(InputFile in1, InputFile in2, OutputFile output)
+        public Merger(InputFile inLeft, InputFile inRight, OutputFile output)
         {
-            var chunk1 = new byte[InputFile.CHUNK_SIZE];
-            var read1 = in1.GetNextChunk(chunk1, 0);
+            InLeft = inLeft;
+            InRight = inRight;
+            Out = output;
             
-            var chunk2 = new byte[InputFile.CHUNK_SIZE];
-            var read2 = in1.GetNextChunk(chunk2, 0);
+            ChunkLeft = new byte[InputFile.CHUNK_SIZE];
+            ChunkRight = new byte[InputFile.CHUNK_SIZE];
 
-            var entryPos1 = 0;
-            var entryPos2 = 0;
+            inLeft.GetNextChunk(ChunkLeft);
+            inRight.GetNextChunk(ChunkRight);
+            
+            AdvanceLeft();
+            AdvanceRight();
+        }
 
-            begin:
-            var nextEntryPos1 = entryPos1;
+        public InputFile InLeft { get; set; }
+        public InputFile InRight { get; set; }
+        public OutputFile Out { get; set; }
 
-            for (;;)
+        public byte[] ChunkLeft { get; set; }
+        public byte[] ChunkRight { get; set; }
+
+        public int ReadLeft;
+        public int ReadRight;
+
+        public int leftPos;
+        public int rightPos;
+
+        public int leftNext;
+        public int rightNext;
+
+        public bool LeftHasEntry = true;
+        public bool RightHasEntry = true;
+
+        public void AdvanceLeft()
+        {
+            if (leftNext >= ReadLeft)
             {
-                ++nextEntryPos1;
-
-                if (entryPos1 >= chunk1.Length)
+                ReadLeft = InLeft.GetNextChunk(ChunkLeft);
+                if (InLeft.IsEnded)
                 {
-                    read1 = in1.GetNextChunk(chunk1, entryPos1);
-                    nextEntryPos1 = nextEntryPos1 - entryPos1;
-                    entryPos1 = 0;
+                    LeftHasEntry = false;
+                    return;
                 }
-                
-                if (chunk1[nextEntryPos1] == '\r')
+                leftPos = 0;
+                leftNext = 0;
+            }
+            leftPos = leftNext;
+            while (ChunkLeft[leftNext++] != '\r')
+                ;
+        }
+        
+        public void AdvanceRight()
+        {
+            if (rightNext >= ReadRight)
+            {
+                ReadRight = InRight.GetNextChunk(ChunkRight);
+                if (InRight.IsEnded)
                 {
-                    nextEntryPos1 += 1;
-                    break;
+                    RightHasEntry = false;
+                    return;
+                }
+                rightPos = 0;
+                rightNext = 0;
+            }
+            rightPos = rightNext;
+            while (ChunkRight[rightNext++] != '\r')
+                ;
+        }
+
+        public void WriteRestLeft()
+        {
+            Out.WriteEntry(ChunkLeft, leftPos, ReadLeft - leftPos);
+        }
+        
+        public void WriteRestRight()
+        {
+            Out.WriteEntry(ChunkRight, rightPos, ReadRight - rightPos);
+        }
+        
+        public void Merge()
+        {
+            while (LeftHasEntry && RightHasEntry)
+            {
+                var leftIsLess = Entry.LessThan(ChunkLeft, leftPos, ChunkRight, rightPos) == -1;
+
+                if (leftIsLess)
+                {
+                    Out.WriteEntry(ChunkLeft, leftPos, leftNext - leftPos);
+                    AdvanceLeft();
+                } else
+                {
+                    Out.WriteEntry(ChunkRight, rightPos, rightNext - rightPos);
+                    AdvanceRight();
                 }
             }
 
+            WriteRestLeft();
+            WriteRestRight();
+
         }
+
+
     }
 }

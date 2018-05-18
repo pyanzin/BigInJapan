@@ -5,7 +5,11 @@ namespace BigSort.Sorting
 {
     public class InputFile : IDisposable
     {
-        public const int CHUNK_SIZE = 1024 * 1024;
+        public const int CHUNK_SIZE = 1024 * 1024 * 32;
+
+        public int NextPos = 0;
+
+        public bool IsEnded = false;
         
         public InputFile(string fileName)
         {
@@ -14,11 +18,23 @@ namespace BigSort.Sorting
 
         public FileStream In;
 
-        public int GetNextChunk(byte[] array, int pos)
+        public int GetNextChunk(byte[] array)
         {
-            In.Seek(pos, SeekOrigin.Begin);
-            var read = In.Read(array, pos, CHUNK_SIZE);
-            return read;
+            In.Seek(NextPos, SeekOrigin.Begin);
+            var read = In.Read(array, 0, CHUNK_SIZE);
+            if (read < CHUNK_SIZE)
+            {
+                IsEnded = true;
+                return read;
+            }
+
+            var lastCrIndex = read;
+
+            while (array[--lastCrIndex] != '\r')
+                ;
+
+            NextPos = NextPos + lastCrIndex + 1;
+            return lastCrIndex + 1;
         }
 
         public void Dispose()
