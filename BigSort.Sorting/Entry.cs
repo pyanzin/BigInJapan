@@ -1,4 +1,7 @@
-﻿namespace BigSort.Sorting
+﻿using System;
+using System.Text;
+
+namespace BigSort.Sorting
 {
     public static class Entry
     {
@@ -29,6 +32,20 @@
                 ++index2;
             }
             return 0;
+        }
+
+        public static string MakeString(byte[] array, int index)
+        {
+            var i = index;
+            while (array[i++] != '\r')
+                ;
+            ++i;
+
+            var copy = new byte[i - index];
+
+            Array.Copy(array, index, copy, 0, i - index);
+
+            return Encoding.ASCII.GetString(copy);
         }
     }
 }

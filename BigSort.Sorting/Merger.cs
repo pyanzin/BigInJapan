@@ -11,8 +11,8 @@
             ChunkLeft = new byte[InputFile.CHUNK_SIZE];
             ChunkRight = new byte[InputFile.CHUNK_SIZE];
 
-            inLeft.GetNextChunk(ChunkLeft);
-            inRight.GetNextChunk(ChunkRight);
+            ReadLeft = inLeft.GetNextChunk(ChunkLeft);
+            ReadRight = inRight.GetNextChunk(ChunkRight);
             
             AdvanceLeft();
             AdvanceRight();
@@ -41,12 +41,13 @@
         {
             if (leftNext >= ReadLeft)
             {
-                ReadLeft = InLeft.GetNextChunk(ChunkLeft);
                 if (InLeft.IsEnded)
                 {
                     LeftHasEntry = false;
                     return;
                 }
+                ReadLeft = InLeft.GetNextChunk(ChunkLeft);
+                
                 leftPos = 0;
                 leftNext = 0;
             }
@@ -59,12 +60,13 @@
         {
             if (rightNext >= ReadRight)
             {
-                ReadRight = InRight.GetNextChunk(ChunkRight);
                 if (InRight.IsEnded)
                 {
                     RightHasEntry = false;
                     return;
                 }
+                ReadRight = InRight.GetNextChunk(ChunkRight);
+                
                 rightPos = 0;
                 rightNext = 0;
             }
@@ -75,18 +77,23 @@
 
         public void WriteRestLeft()
         {
-            Out.WriteEntry(ChunkLeft, leftPos, ReadLeft - leftPos);
+            if (LeftHasEntry)
+                Out.WriteEntry(ChunkLeft, leftPos, ReadLeft - leftPos);
         }
         
         public void WriteRestRight()
         {
-            Out.WriteEntry(ChunkRight, rightPos, ReadRight - rightPos);
+            if (RightHasEntry)
+                Out.WriteEntry(ChunkRight, rightPos, ReadRight - rightPos);
         }
         
         public void Merge()
         {
             while (LeftHasEntry && RightHasEntry)
             {
+                var left = Entry.MakeString(ChunkLeft, leftPos);
+                var right = Entry.MakeString(ChunkRight, rightPos);
+                
                 var leftIsLess = Entry.LessThan(ChunkLeft, leftPos, ChunkRight, rightPos) == -1;
 
                 if (leftIsLess)

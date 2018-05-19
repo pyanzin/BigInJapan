@@ -14,9 +14,9 @@ namespace BigSort.Generator {
             var begin = DateTime.UtcNow;
             var fileName = "unsorted.txt";
 
-            using (var file = File.Create(fileName))
+            using (var file = File.Create(fileName, 1024 * 1024 * 256))
             {
-                for (int i = 0; i < 2000000; i++)
+                for (int i = 0; i < 1024 * 1024 * 32; i++)
                 {
                     var entry = GenerateEntry();
                     file.Write(entry, 0, entry.Length);

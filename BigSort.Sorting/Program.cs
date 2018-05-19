@@ -11,6 +11,8 @@ namespace BigSort.Sorting {
     {
         static void Main(string[] args)
         {
+            //_inputFile = new InputFile("unsorted.txt");
+            
             var start = DateTime.UtcNow;
             using (var unsorted = new InputFile("unsorted.txt"))
             {
@@ -29,7 +31,7 @@ namespace BigSort.Sorting {
                         {
                             entries.Add((entry, i + 1));
                             entry = i + 1;
-                        }
+                        } 
 
                         ++i;
                     }
@@ -58,9 +60,26 @@ namespace BigSort.Sorting {
             Console.ReadKey();
         }
 
+        private static InputFile _inputFile;
+        private static object _inputFileLock = new object();
+        
+        public (byte[], int) GetInputChunk()
+        {
+            lock (_inputFileLock)
+            {
+                if (_inputFile.IsEnded)
+                {
+                    _inputFile.Dispose();
+                    return (null, 0);
+                }
+                var buffer = new byte[InputFile.CHUNK_SIZE];
+                var read = _inputFile.GetNextChunk(buffer);
+
+                return (buffer, read);
+            }
+        }
 
         static object _fileNameLock = new object();
-
         private static int _fileNameCounter = 0;
 
         public static string GetFileName()
