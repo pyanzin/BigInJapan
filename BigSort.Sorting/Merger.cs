@@ -91,8 +91,8 @@
         {
             while (LeftHasEntry && RightHasEntry)
             {
-                var left = Entry.MakeString(ChunkLeft, leftPos);
-                var right = Entry.MakeString(ChunkRight, rightPos);
+                //var left = Entry.MakeString(ChunkLeft, leftPos);
+                //var right = Entry.MakeString(ChunkRight, rightPos);
                 
                 var leftIsLess = Entry.LessThan(ChunkLeft, leftPos, ChunkRight, rightPos) == -1;
 
