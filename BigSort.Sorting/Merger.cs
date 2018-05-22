@@ -93,16 +93,24 @@
             {
                 //var left = Entry.MakeString(ChunkLeft, leftPos);
                 //var right = Entry.MakeString(ChunkRight, rightPos);
-                
-                var leftIsLess = Entry.LessThan(ChunkLeft, leftPos, ChunkRight, rightPos) == -1;
 
-                if (leftIsLess)
+                var i = leftPos;
+                while (ChunkLeft[i] != '.')
+                    ++i;
+                i += 2;
+
+                var j = rightPos;
+                while (ChunkRight[j] != '.')
+                    ++j;
+                j += 2;
+
+                if (Entry.StringLess(ChunkLeft, i, ChunkRight, j) == -1)
                 {
-                    Out.WriteEntry(ChunkLeft, leftPos, leftNext - leftPos);
+                    Out.Out.Write(ChunkLeft, leftPos, leftNext - leftPos);
                     AdvanceLeft();
                 } else
                 {
-                    Out.WriteEntry(ChunkRight, rightPos, rightNext - rightPos);
+                    Out.Out.Write(ChunkRight, rightPos, rightNext - rightPos);
                     AdvanceRight();
                 }
             }
