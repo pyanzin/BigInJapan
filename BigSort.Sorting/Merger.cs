@@ -78,13 +78,27 @@
         public void WriteRestLeft()
         {
             if (LeftHasEntry)
+            {
                 Out.WriteEntry(ChunkLeft, leftPos, ReadLeft - leftPos);
+                if (!InLeft.IsEnded)
+                {
+                    ReadLeft = InLeft.GetNextChunk(ChunkLeft);
+                    Out.WriteEntry(ChunkLeft, 0, ReadLeft);
+                }
+            }
         }
         
         public void WriteRestRight()
         {
             if (RightHasEntry)
+            {
                 Out.WriteEntry(ChunkRight, rightPos, ReadRight - rightPos);
+                if (!InRight.IsEnded)
+                {
+                    ReadRight = InRight.GetNextChunk(ChunkRight);
+                    Out.WriteEntry(ChunkRight, 0, ReadRight);
+                }
+            }
         }
         
         public void Merge()

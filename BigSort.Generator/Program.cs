@@ -17,11 +17,11 @@ namespace BigSort.Generator {
         
         static void Main(string[] args)
         {
-            int fileSizeMb = 1024;
+            int fileSizeMb = 8096;
             if (args.Length > 0)
                 fileSizeMb = int.Parse(args[0]);
            
-            FileSize = 1024 * 1024 * fileSizeMb;
+            FileSize = 1024L * 1024 * fileSizeMb;
             
             var begin = DateTime.UtcNow;
             var fileName = "unsorted.txt";

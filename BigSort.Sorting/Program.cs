@@ -33,7 +33,7 @@ namespace BigSort.Sorting {
             ThreadPool.QueueUserWorkItem(InitialSortWrapper);
             ThreadPool.QueueUserWorkItem(InitialSortWrapper);
             ThreadPool.QueueUserWorkItem(InitialSortWrapper);
-
+            
             Console.ReadKey();
         }
 

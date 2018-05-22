@@ -7,7 +7,7 @@ namespace BigSort.Sorting
     {
         public OutputFile(string fileName)
         {
-            Out = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write, 1024 * 1024 * 512, true);
+            Out = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write, 1024 * 1024 * 128, false);
         }
 
         public void WriteEntry(byte[] src, int pos, int size)
