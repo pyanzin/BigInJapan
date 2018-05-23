@@ -5,7 +5,7 @@ namespace BigSort.Sorting
 {
     public class InputFile : IDisposable
     {
-        public static int CHUNK_SIZE = 1024 * 1024 * 1024;
+        public static long CHUNK_SIZE = 1024L * 1024 * 1024;
 
         public long NextPos = 0;
 
@@ -21,8 +21,8 @@ namespace BigSort.Sorting
         public int GetNextChunk(byte[] array)
         {
             In.Seek(NextPos, SeekOrigin.Begin);
-            var read = In.Read(array, 0, CHUNK_SIZE);
-            if (read < CHUNK_SIZE)
+            var read = In.Read(array, 0, array.Length);
+            if (read < array.Length)
             {
                 IsEnded = true;
                 return read;

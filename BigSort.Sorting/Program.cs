@@ -17,13 +17,13 @@ namespace BigSort.Sorting {
 
         private static long OriginalSize = 0;
 
-        private static int ParCount = 4;
+        private static int ParCount = 1;
 
         static void Main(string[] args)
         {
             Start = DateTime.UtcNow;
 
-            //_inputFile = new InputFile("unsorted.txt");
+            _inputFile = new InputFile("unsorted.txt");
 
             var argsCorrect = ParseArguments(args);
 
@@ -60,7 +60,7 @@ namespace BigSort.Sorting {
                             return false;
                         }
 
-                        InputFile.CHUNK_SIZE = buffer * 1024 * 1024;
+                        InputFile.CHUNK_SIZE = buffer * 1024L * 1024;
                         continue;
                     }
                     
@@ -126,14 +126,25 @@ namespace BigSort.Sorting {
         
         public static void GetChunkAndSort()
         {
-            var buffer = new byte[InputFile.CHUNK_SIZE];
-            var read = GetInputChunk(buffer);
+            long partCount = InputFile.CHUNK_SIZE / (1024L * 1024 * 1024) + 1;
+            long partSize = InputFile.CHUNK_SIZE / partCount;
+            var chunkParts = new byte[partCount][];
+            var readParts = new long[partCount];
+            
+            var entries = new List<(int, int)>(1024 * 1024);
 
-            while (read != 0)
+            for (int partIndex = 0; partIndex < partCount; ++partIndex)
             {
-                OriginalSize += read;
+                var buffer = new byte[partSize];
+                var read = GetInputChunk(buffer);
                 
-                var entries = new List<(int, int)>(1024 * 1024);
+                OriginalSize += read;
+
+                if (read == 0)
+                    break;
+
+                chunkParts[partIndex] = buffer;
+                readParts[partIndex] = read;
 
                 var entry = 0;
                 var i = entry;
@@ -141,53 +152,59 @@ namespace BigSort.Sorting {
                 {
                     if (buffer[i] == '\r')
                     {
-                        entries.Add((entry, i + 1));
+                        int size = i - entry + 1;
+                        entries.Add((entry, (partIndex << 16) | size));
                         entry = i + 1;
-                    } 
+                    }
 
                     ++i;
                 }
-
-                entries.Sort((a, b) => {
-                    var i1 = a.Item1;
-                    while (buffer[i1] != '.')
-                        ++i1;
-                    i1 += 2;
-
-                    var j = b.Item1;
-                    while (buffer[j] != '.')
-                        ++j;
-                    j += 2;
-
-                    while (buffer[i1] != '\r' || buffer[j] != '\r')
-                    {
-                        if (buffer[i1] < buffer[j])
-                            return -1;
-                        else if (buffer[i1] > buffer[j])
-                            return 1;
-                        ++i1;
-                        ++j;
-                    }
-                    return 0;
-                });
-
-                var outputFileName = GetFileName();
-                using (var output = new OutputFile(outputFileName))
-                {
-                    foreach (var e in entries)
-                    {
-                        output.WriteEntry(buffer, e.Item1, e.Item2 - e.Item1);
-                    }
-                }
-                            
-                GC.Collect();
-
-                var hasChunksToMerge = PutAndContinue(new ChunkFile(outputFileName, read));
-               
-                
-                read = GetInputChunk(buffer);
             }
             
+            entries.Sort((a, b) =>
+            {
+                int partIndexA = (int)(a.Item2 & 0xffff0000) >> 16;
+                int partIndexB = (int)(b.Item2 & 0xffff0000) >> 16;
+
+                byte[] bufferA = chunkParts[partIndexA];
+                byte[] bufferB = chunkParts[partIndexB];
+                
+                var i1 = a.Item1;
+                while (bufferA[i1] != '.')
+                    ++i1;
+                i1 += 2;
+
+                var j = b.Item1;
+                while (bufferB[j] != '.')
+                    ++j;
+                j += 2;
+
+                while (bufferA[i1] != '\r' || bufferB[j] != '\r')
+                {
+                    if (bufferA[i1] < bufferB[j])
+                        return -1;
+                    else if (bufferA[i1] > bufferB[j])
+                        return 1;
+                    ++i1;
+                    ++j;
+                }
+
+                return 0;
+            });
+
+            var outputFileName = GetFileName();
+
+            using (var output = new OutputFile(outputFileName))
+            {
+                foreach (var e in entries)
+                {
+                    int partIndex = (int)(e.Item2 & 0xffff0000) >> 16;
+                    output.WriteEntry(chunkParts[partIndex], e.Item1, e.Item2 & 0xffff);
+                }
+            }
+            
+            PutAndContinue(new ChunkFile(outputFileName, readParts.Sum()));
+
             SpawnMergeTask();
             
             GC.Collect();
@@ -215,8 +232,7 @@ namespace BigSort.Sorting {
         {
             lock (_fileNameLock)
             {
-                return $"output{_fileNameCounter++}.bin" +
-                       $"";
+                return $"output{_fileNameCounter++}.bin";
             }
         }
 

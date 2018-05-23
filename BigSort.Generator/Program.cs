@@ -28,11 +28,13 @@ namespace BigSort.Generator {
 
             _output = File.Create(fileName, 1024 * 1024 * 256);
 
-            ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
+            GenerateBlockWrapper(null);
+            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
+            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
+            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
+            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
 
+            _output.Close();
             Console.ReadKey();
         }
 
@@ -63,18 +65,21 @@ namespace BigSort.Generator {
                 block[++blockIndex] = (byte) ' ';
                 ++blockIndex;
 
-                var stringPartSize = rnd.Next(1, MaxStringLength);
+                var stringPartSize = rnd.Next(3, MaxStringLength);
 
                 byte[] stringPartArray = new byte[stringPartSize];
+                
+                
                 rnd.NextBytes(stringPartArray);
+                stringPartArray[stringPartSize - 2] = (byte) '\n';
+                stringPartArray[stringPartSize - 1] = (byte) '\r';
                 for (int i = 0; i < stringPartArray.Length; i++)
                     stringPartArray[i] = (byte) (stringPartArray[i] % 52 + (byte) 'A');
 
+                var str = Encoding.ASCII.GetString(stringPartArray);
                 Array.Copy(stringPartArray, 0, block, blockIndex, stringPartArray.Length);
 
                 blockIndex += stringPartSize;
-                block[++blockIndex] = (byte) '\n';
-                block[++blockIndex] = (byte) '\r';
                 ++blockIndex;
 
                 totallyGenerated += stringPartSize + 2;
