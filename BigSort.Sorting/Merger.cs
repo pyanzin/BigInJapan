@@ -22,8 +22,8 @@
         public InputFile InRight { get; set; }
         public OutputFile Out { get; set; }
 
-        public byte[] ChunkLeft { get; set; }
-        public byte[] ChunkRight { get; set; }
+        public byte[] ChunkLeft;
+        public byte[] ChunkRight;
 
         public int ReadLeft;
         public int ReadRight;

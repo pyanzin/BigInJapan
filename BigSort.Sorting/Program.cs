@@ -15,24 +15,24 @@ namespace BigSort.Sorting {
 
         private static string _outputFileName;
 
-        private static Int64 OriginalSize = 0;
+        private static long OriginalSize = 0;
+
+        private static int ParCount = 4;
 
         static void Main(string[] args)
         {
             Start = DateTime.UtcNow;
+
+            //_inputFile = new InputFile("unsorted.txt");
 
             var argsCorrect = ParseArguments(args);
 
             if (!argsCorrect)
                 return;
 
-            _inputFile = new InputFile("unsorted.txt");
-            
-            ThreadPool.QueueUserWorkItem(InitialSortWrapper);
-            ThreadPool.QueueUserWorkItem(InitialSortWrapper);
-            ThreadPool.QueueUserWorkItem(InitialSortWrapper);
-            ThreadPool.QueueUserWorkItem(InitialSortWrapper);
-            ThreadPool.QueueUserWorkItem(InitialSortWrapper);
+
+            for (int i = 0; i < ParCount; ++i)
+                ThreadPool.QueueUserWorkItem(InitialSortWrapper);
             
             Console.ReadKey();
         }
@@ -43,12 +43,12 @@ namespace BigSort.Sorting {
             {
                 if (args[i].StartsWith("--"))
                 {
-                    if (args[i] == "--buffer")
+                    if (args[i] == "--buf")
                     {
                         ++i;
                         if (i >= args.Length)
                         {
-                            Console.WriteLine("Buffer value is not defined");
+                            Console.WriteLine("--buffer value is not defined");
                             return false;
                         }
 
@@ -61,7 +61,27 @@ namespace BigSort.Sorting {
                         }
 
                         InputFile.CHUNK_SIZE = buffer * 1024 * 1024;
+                        continue;
+                    }
+                    
+                    if (args[i] == "--par")
+                    {
+                        ++i;
+                        if (i >= args.Length)
+                        {
+                            Console.WriteLine("--par value is not defined");
+                            return false;
+                        }
 
+                        int parCount;
+                        var numberValid = int.TryParse(args[i], out parCount);
+                        if (!numberValid)
+                        {
+                            Console.WriteLine("{0} is not valid number", args[i]);
+                            return false;
+                        }
+
+                        ParCount = parCount;
                     }
                 }
                 else
@@ -72,15 +92,15 @@ namespace BigSort.Sorting {
                         return false;
                     }
 
-                    if (_inputFile == null)
+                    //if (_inputFile == null)
                         _inputFile = new InputFile(args[i]);
-                    else if (_outputFileName == null)
-                        _outputFileName = args[i];
-                    else
-                    {
-                        Console.WriteLine("Unknown parameter '{0}'", args[i]);
-                        return false;
-                    }
+                       // _outputFileName = args[i];
+                    //else if (_outputFileName == null)
+                    //else
+                    //{
+                    //    Console.WriteLine("Unknown parameter '{0}'", args[i]);
+                     //   return false;
+                    //}
                 }
             }
 
@@ -106,9 +126,10 @@ namespace BigSort.Sorting {
         
         public static void GetChunkAndSort()
         {
-            var (buffer, read) = GetInputChunk();
+            var buffer = new byte[InputFile.CHUNK_SIZE];
+            var read = GetInputChunk(buffer);
 
-            while (buffer != null)
+            while (read != 0)
             {
                 OriginalSize += read;
                 
@@ -158,29 +179,32 @@ namespace BigSort.Sorting {
                         output.WriteEntry(buffer, e.Item1, e.Item2 - e.Item1);
                     }
                 }
+                            
+                GC.Collect();
 
                 var hasChunksToMerge = PutAndContinue(new ChunkFile(outputFileName, read));
+               
                 
-                if (hasChunksToMerge)
-                    SpawnMergeTask();
-                
-                (buffer, read) = GetInputChunk();
+                read = GetInputChunk(buffer);
             }
+            
+            SpawnMergeTask();
+            
+            GC.Collect();
         }
         
-        public static (byte[], int) GetInputChunk()
+        public static long GetInputChunk(byte[] buffer)
         {
             lock (_inputFileLock)
             {
-                if (_inputFile.IsEnded)
+                if (_inputFile == null || _inputFile.IsEnded)
                 {
-                    _inputFile.Dispose();
-                    return (null, 0);
+                    _inputFile?.Dispose();
+                    return 0;
                 }
-                var buffer = new byte[InputFile.CHUNK_SIZE];
                 var read = _inputFile.GetNextChunk(buffer);
 
-                return (buffer, read);
+                return read;
             }
         }
 
