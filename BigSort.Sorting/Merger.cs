@@ -7,9 +7,6 @@
             InLeft = inLeft;
             InRight = inRight;
             Out = output;
-            
-            ChunkLeft = new byte[1024 * 1024 * 512];
-            ChunkRight = new byte[1024 * 1024 * 512];
 
             (ReadLeft, ChunkLeft )= inLeft.GetNextChunk();
             (ReadRight, ChunkRight) = inRight.GetNextChunk();

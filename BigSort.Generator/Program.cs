@@ -103,7 +103,7 @@ namespace BigSort.Generator {
 
         static void GenerateBlockWrapper()
         {
-            GenerateBlock(1024 * 1024 * 128, _fileSize / 4);
+            GenerateBlock(1024 * 1024 * 128, _fileSize / _parCount);
         }
 
         static void GenerateBlock(long blockSize, long taskLimit)
@@ -123,7 +123,7 @@ namespace BigSort.Generator {
                 blockIndex += numberString.Length;
                 totallyGenerated += numberString.Length;
 
-                block[++blockIndex] = (byte) '.';
+                block[blockIndex] = (byte) '.';
                 block[++blockIndex] = (byte) ' ';
                 ++blockIndex;
 
@@ -133,16 +133,15 @@ namespace BigSort.Generator {
                 
                 
                 rnd.NextBytes(stringPartArray);
-                stringPartArray[stringPartSize - 2] = (byte) '\n';
-                stringPartArray[stringPartSize - 1] = (byte) '\r';
                 for (int i = 0; i < stringPartArray.Length; i++)
                     stringPartArray[i] = (byte) (stringPartArray[i] % 52 + (byte) 'A');
+                
+                stringPartArray[stringPartSize - 2] = (byte) '\n';
+                stringPartArray[stringPartSize - 1] = (byte) '\r';
 
-                var str = Encoding.ASCII.GetString(stringPartArray);
                 Array.Copy(stringPartArray, 0, block, blockIndex, stringPartArray.Length);
 
                 blockIndex += stringPartSize;
-                ++blockIndex;
 
                 totallyGenerated += stringPartSize + 2;
 

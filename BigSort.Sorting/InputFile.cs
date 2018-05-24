@@ -26,6 +26,8 @@ namespace BigSort.Sorting
         private byte[] _nextChunk;
         private int _nextChunkRead;
 
+        private bool _readingCompleted = false;
+
         private object _nextChunkFreedLock = new object();
         private object _nextChunkReadyLock = new object();
 
@@ -44,9 +46,7 @@ namespace BigSort.Sorting
                             if (_nextChunkRead < _chunkSize)
                             {
                                 In.Dispose();
-                                IsEnded = true;
-                                _nextChunk = new byte[0];
-                                _nextChunkRead = 0;
+                                _readingCompleted = true;
                                 Monitor.Pulse(_nextChunkReadyLock);
                                 return;
                             }
@@ -76,6 +76,9 @@ namespace BigSort.Sorting
                     var nextChunkTuple = (_nextChunkRead, _nextChunk);
                     _nextChunk = new byte[0];
                     _nextChunkRead = 0;
+
+                    if (_readingCompleted)
+                        IsEnded = true;
 
                     Monitor.Pulse(_nextChunkFreedLock);
                     return nextChunkTuple;

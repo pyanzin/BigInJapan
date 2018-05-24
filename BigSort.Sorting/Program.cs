@@ -26,16 +26,35 @@ namespace BigSort.Sorting {
             
             Start = DateTime.UtcNow;
 
-            _inputFile = new InputFile("unsorted.txt", (int)InputFile.CHUNK_SIZE);
-
             var argsCorrect = ParseArguments(args);
 
             if (!argsCorrect)
                 return;
+            
+            if (_inputFile == null)
+                _inputFile = new InputFile("unsorted.txt", (int)InputFile.CHUNK_SIZE);
 
+            if (_outputFileName == null)
+                _outputFileName = "sorted.txt";
 
-            for (int i = 0; i < ParCount; ++i)
-                ThreadPool.QueueUserWorkItem(InitialSortWrapper);
+            var sortTasks = new List<Task>(ParCount);
+            for (int i = 0; i < ParCount; i++)
+            {
+                sortTasks.Add(Task.Run(() => InitialSortWrapper()));
+            }
+
+            Task.WaitAll(sortTasks.ToArray());
+
+            if (_chunkFiles.Count > 1)
+            {
+                using (var output = new OutputFile(_outputFileName)) {
+                    var merger = new NWayMerger(_chunkFiles.ToArray(),output);
+                    merger.Merge();
+                }
+        }
+            
+            Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - Start));
+
             
             Console.ReadKey();
         }
@@ -96,7 +115,7 @@ namespace BigSort.Sorting {
                     }
 
                     //if (_inputFile == null)
-                        _inputFile = new InputFile(args[i]);
+                        _inputFile = new InputFile(args[i], (int)InputFile.CHUNK_SIZE);
                        // _outputFileName = args[i];
                     //else if (_outputFileName == null)
                     //else
@@ -122,9 +141,10 @@ namespace BigSort.Sorting {
             Merge();
         }
         
-        public static void InitialSortWrapper(object threadContext)
+        public static void InitialSortWrapper()
         {
-            GetChunkAndSort();
+            while (!_inputFile.IsEnded)
+                GetChunkAndSort();
         }
         
         public static void GetChunkAndSort()
@@ -207,7 +227,7 @@ namespace BigSort.Sorting {
             
             PutAndContinue(new ChunkFile(outputFileName, readParts.Sum()));
 
-            SpawnMergeTask();
+            //SpawnMergeTask();
             
             GC.Collect();
         }
@@ -282,9 +302,6 @@ namespace BigSort.Sorting {
 
                 _chunkFiles = new Stack<ChunkFile>(_chunkFiles.OrderByDescending(x => x.Size));
                 
-                if (Math.Abs(chunkFile.Size - OriginalSize) < 1024 * 1024)
-                    Console.WriteLine("Processing completed in :" + (DateTime.UtcNow - Start));
-
                 if (_chunkFiles.Count < 2)
                     return false;
 

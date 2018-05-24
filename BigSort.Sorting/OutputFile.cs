@@ -38,6 +38,7 @@ namespace BigSort.Sorting
         
         public void Dispose()
         {
+            Out.Write(_outputBuffer, 0, _bufferIndex);
             Out.Dispose();
         }
     }
