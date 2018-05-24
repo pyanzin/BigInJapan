@@ -22,7 +22,7 @@ namespace BigSort.Sorting
 
         public static int StringLess(byte[] array1, int index1, byte[] array2, int index2)
         {
-            while (array1[index1] != '\r' || array2[index2] != '\r')
+            while (array1[index1] != '\r' && array2[index2] != '\r')
             {
                 if (array1[index1] < array2[index2])
                     return -1;

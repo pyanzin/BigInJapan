@@ -47,14 +47,14 @@ namespace BigSort.Sorting {
 
             if (_chunkFiles.Count > 1)
             {
-                using (var output = new OutputFile(_outputFileName)) {
-                    var merger = new NWayMerger(_chunkFiles.ToArray(),output);
+                using (var output = new OutputFile(_outputFileName))
+                {
+                    var merger = new NWayMerger(_chunkFiles.ToArray(), output);
                     merger.Merge();
                 }
-        }
-            
-            Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - Start));
+            }
 
+            Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - Start));
             
             Console.ReadKey();
         }

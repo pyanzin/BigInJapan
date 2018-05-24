@@ -35,43 +35,45 @@ namespace BigSort.Sorting
         {
             lock (_nextChunkFreedLock)
             {
-                    for (;;)
+                for (;;)
+                {
+                    lock (_nextChunkReadyLock)
                     {
-                        lock (_nextChunkReadyLock)
+                        _nextChunk = new byte[_chunkSize];
+
+                        In.Seek(NextPos, SeekOrigin.Begin);
+                        _nextChunkRead = In.Read(_nextChunk, 0, _chunkSize);
+                        if (_nextChunkRead < _chunkSize)
                         {
-                            _nextChunk = new byte[_chunkSize];
-
-                            In.Seek(NextPos, SeekOrigin.Begin);
-                            _nextChunkRead = In.Read(_nextChunk, 0, _chunkSize);
-                            if (_nextChunkRead < _chunkSize)
-                            {
-                                In.Dispose();
-                                _readingCompleted = true;
-                                Monitor.Pulse(_nextChunkReadyLock);
-                                return;
-                            }
-
-                            var lastCrIndex = _nextChunkRead;
-
-                            while (_nextChunk[--lastCrIndex] != '\r')
-                                ;
-
-                            NextPos = NextPos + lastCrIndex + 1;
-                            _nextChunkRead = lastCrIndex + 1;
-
+                            In.Dispose();
+                            _readingCompleted = true;
                             Monitor.Pulse(_nextChunkReadyLock);
+                            return;
                         }
 
-                        Monitor.Wait(_nextChunkFreedLock);
+                        var lastCrIndex = _nextChunkRead;
+
+                        while (_nextChunk[--lastCrIndex] != '\r')
+                            ;
+
+                        NextPos = NextPos + lastCrIndex + 1;
+                        _nextChunkRead = lastCrIndex + 1;
+
+                        Monitor.Pulse(_nextChunkReadyLock);
                     }
+
+                    Monitor.Wait(_nextChunkFreedLock);
+                }
             }
         }
 
         public (int, byte[]) GetNextChunk()
         {
-            lock (_nextChunkFreedLock)
+            lock (_nextChunkReadyLock)
             {
-                lock (_nextChunkReadyLock)
+                if (_nextChunk == null)
+                    Monitor.Wait(_nextChunkReadyLock);
+                lock (_nextChunkFreedLock)
                 {
                     var nextChunkTuple = (_nextChunkRead, _nextChunk);
                     _nextChunk = new byte[0];
