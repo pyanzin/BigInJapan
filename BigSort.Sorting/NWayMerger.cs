@@ -6,7 +6,6 @@ namespace BigSort.Sorting
 {
     public class NWayMerger
     {
-        private InputFile[] _chunks;
         private OutputFile _output;
         private EntryStream[] _entryStreams;
 
@@ -23,35 +22,48 @@ namespace BigSort.Sorting
 
         public void Merge()
         {
-            var frontEntries = _entryStreams.Select(s => s.GetEntry()).ToList();
+            var frontEntries = new SortedSet<(int, int)>(new EntryComparer(_entryStreams));
+
+            foreach (var stream in _entryStreams)
+            {
+                frontEntries.Add(stream.GetEntry());
+            }
 
             while (frontEntries.Count > 0)
             {
-                frontEntries.Sort((a, b) =>
-                {
-                    int partIndexA = (int) (a.Item2 & 0xffff0000) >> 16;
-                    int partIndexB = (int) (b.Item2 & 0xffff0000) >> 16;
-
-                    byte[] bufferA = _entryStreams[partIndexA].Chunk;
-                    byte[] bufferB = _entryStreams[partIndexB].Chunk;
-
-                    return -Entry.LessThan(bufferA, a.Item1, bufferB, b.Item1);
-                });
-                
-                var smallest = frontEntries[frontEntries.Count - 1];
+                var smallest = frontEntries.FirstOrDefault();
 
                 var streamIndex = (smallest.Item2 & 0xffff0000) >> 16;
                 
                 _output.WriteEntry(_entryStreams[streamIndex].Chunk, smallest.Item1, smallest.Item2 & 0xffff);
+                frontEntries.RemoveWhere(x => x.Item1 == smallest.Item1 && x.Item2 == smallest.Item2);
+                _entryStreams[streamIndex].Advance();
 
                 if (_entryStreams[streamIndex].HasEntry)
-                    frontEntries[frontEntries.Count - 1] = _entryStreams[streamIndex].GetEntry();
-                else
-                    frontEntries.RemoveAt(frontEntries.Count - 1);
+                    frontEntries.Add(_entryStreams[streamIndex].GetEntry());
             }
         }
     }
 
+    public class EntryComparer : Comparer<(int, int)>
+    {
+        private EntryStream[] _entryStreams;
+
+        public EntryComparer(EntryStream[] entryStreams)
+        {
+            _entryStreams = entryStreams;
+        }
+        public override int Compare((int, int) a, (int, int) b)
+        {
+            int partIndexA = (int) (a.Item2 & 0xffff0000) >> 16;
+            int partIndexB = (int) (b.Item2 & 0xffff0000) >> 16;
+
+            byte[] bufferA = _entryStreams[partIndexA].Chunk;
+            byte[] bufferB = _entryStreams[partIndexB].Chunk;
+
+            return Entry.LessThan(bufferA, a.Item1, bufferB, b.Item1);
+        }
+    }
     public class EntryStream
     {
         private InputFile _file;
@@ -59,8 +71,8 @@ namespace BigSort.Sorting
         public EntryStream(InputFile file, int id)
         {
             In = file;
-            (Read, Chunk) = In.GetNextChunk();
             _id = id;
+            Advance();
         }
 
         public InputFile In { get; set; }
@@ -101,7 +113,6 @@ namespace BigSort.Sorting
         public (int, int) GetEntry()
         {
             var value = (Pos, (_id << 16) | Next - Pos);
-            Advance();
             return value;
         }
 
