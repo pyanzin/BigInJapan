@@ -11,8 +11,8 @@
             ChunkLeft = new byte[1024 * 1024 * 512];
             ChunkRight = new byte[1024 * 1024 * 512];
 
-            ReadLeft = inLeft.GetNextChunk(ChunkLeft);
-            ReadRight = inRight.GetNextChunk(ChunkRight);
+            (ReadLeft, ChunkLeft )= inLeft.GetNextChunk();
+            (ReadRight, ChunkRight) = inRight.GetNextChunk();
             
             AdvanceLeft();
             AdvanceRight();
@@ -46,7 +46,7 @@
                     LeftHasEntry = false;
                     return;
                 }
-                ReadLeft = InLeft.GetNextChunk(ChunkLeft);
+                (ReadLeft, ChunkLeft) = InLeft.GetNextChunk();
                 
                 leftPos = 0;
                 leftNext = 0;
@@ -65,7 +65,7 @@
                     RightHasEntry = false;
                     return;
                 }
-                ReadRight = InRight.GetNextChunk(ChunkRight);
+                (ReadRight, ChunkRight) = InRight.GetNextChunk();
                 
                 rightPos = 0;
                 rightNext = 0;
@@ -82,7 +82,7 @@
                 Out.WriteEntry(ChunkLeft, leftPos, ReadLeft - leftPos);
                 if (!InLeft.IsEnded)
                 {
-                    ReadLeft = InLeft.GetNextChunk(ChunkLeft);
+                    (ReadLeft, ChunkLeft) = InLeft.GetNextChunk();
                     Out.WriteEntry(ChunkLeft, 0, ReadLeft);
                 }
             }
@@ -95,7 +95,7 @@
                 Out.WriteEntry(ChunkRight, rightPos, ReadRight - rightPos);
                 if (!InRight.IsEnded)
                 {
-                    ReadRight = InRight.GetNextChunk(ChunkRight);
+                    (ReadRight, ChunkRight) = InRight.GetNextChunk();
                     Out.WriteEntry(ChunkRight, 0, ReadRight);
                 }
             }

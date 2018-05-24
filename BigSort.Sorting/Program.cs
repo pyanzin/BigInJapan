@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,9 +22,11 @@ namespace BigSort.Sorting {
 
         static void Main(string[] args)
         {
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            
             Start = DateTime.UtcNow;
 
-            _inputFile = new InputFile("unsorted.txt");
+            _inputFile = new InputFile("unsorted.txt", (int)InputFile.CHUNK_SIZE);
 
             var argsCorrect = ParseArguments(args);
 
@@ -135,22 +138,21 @@ namespace BigSort.Sorting {
 
             for (int partIndex = 0; partIndex < partCount; ++partIndex)
             {
-                var buffer = new byte[partSize];
-                var read = GetInputChunk(buffer);
+                var (read, chunk) = GetInputChunk();
                 
                 OriginalSize += read;
 
                 if (read == 0)
                     break;
 
-                chunkParts[partIndex] = buffer;
+                chunkParts[partIndex] = chunk;
                 readParts[partIndex] = read;
 
                 var entry = 0;
                 var i = entry;
                 while (i < read)
                 {
-                    if (buffer[i] == '\r')
+                    if (chunk[i] == '\r')
                     {
                         int size = i - entry + 1;
                         entries.Add((entry, (partIndex << 16) | size));
@@ -210,18 +212,19 @@ namespace BigSort.Sorting {
             GC.Collect();
         }
         
-        public static long GetInputChunk(byte[] buffer)
+        public static (int, byte[]) GetInputChunk()
         {
             lock (_inputFileLock)
             {
-                if (_inputFile == null || _inputFile.IsEnded)
-                {
-                    _inputFile?.Dispose();
-                    return 0;
-                }
-                var read = _inputFile.GetNextChunk(buffer);
+                return _inputFile.GetNextChunk();
+            }
+        }
 
-                return read;
+        public static bool InputIsEnded()
+        {
+            lock (_inputFileLock)
+            {
+                return _inputFile.IsEnded;
             }
         }
 
@@ -261,7 +264,9 @@ namespace BigSort.Sorting {
                 SpawnMergeTask();
             
             File.Delete(chunk1.Name);
-            File.Delete(chunk2.Name);            
+            File.Delete(chunk2.Name);   
+            
+            GC.Collect();
         }
 
         private static object _chunkFileLock = new object();

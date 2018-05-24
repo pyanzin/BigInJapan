@@ -9,39 +9,101 @@ using System.Threading.Tasks;
 namespace BigSort.Generator {
     class Program {
 
-        static int MaxStringLength = 1024;
+        private static int MaxStringLength = 1024;
 
         private static FileStream _output;
 
-        private static long FileSize;
+        private static long _fileSize = 1024L * 1024 * 2048;
+
+        private static int _parCount = 4;
         
         static void Main(string[] args)
         {
-            int fileSizeMb = 8096;
-            if (args.Length > 0)
-                fileSizeMb = int.Parse(args[0]);
-           
-            FileSize = 1024L * 1024 * fileSizeMb;
-            
             var begin = DateTime.UtcNow;
-            var fileName = "unsorted.txt";
 
-            _output = File.Create(fileName, 1024 * 1024 * 256);
+            if (!ParseArguments(args))
+                return;
+            
+            if (_output == null)
+            {
+                var fileName = "unsorted.txt";
+                _output = File.Create(fileName, 1024 * 1024 * 512);
+            }
 
-            GenerateBlockWrapper(null);
-            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
-            //ThreadPool.QueueUserWorkItem(GenerateBlockWrapper);
+            var pars = new List<Task>(_parCount);
+            for (int i = 0; i < _parCount; ++i)
+            {
+                pars.Add(Task.Run(() => GenerateBlockWrapper()));
+            }
 
+            Task.WaitAll(pars.ToArray());
+            
             _output.Close();
+            
+            Console.WriteLine("Generating completed in {0}", DateTime.UtcNow - begin);
+
             Console.ReadKey();
         }
-
-
-        static void GenerateBlockWrapper(object context)
+        
+        private static bool ParseArguments(string[] args)
         {
-            GenerateBlock(1024 * 1024 * 128, FileSize / 4);
+            for (int i = 0; i < args.Length; ++i)
+            {
+                if (args[i].StartsWith("--"))
+                {
+                    if (args[i] == "--size")
+                    {
+                        ++i;
+                        if (i >= args.Length)
+                        {
+                            Console.WriteLine("--size value is not defined");
+                            return false;
+                        }
+
+                        int size;
+                        var numberValid = int.TryParse(args[i], out size);
+                        if (!numberValid)
+                        {
+                            Console.WriteLine("{0} is not valid number", args[i]);
+                            return false;
+                        }
+
+                        _fileSize = size * 1024L * 1024;
+                        continue;
+                    }
+                    
+                    if (args[i] == "--par")
+                    {
+                        ++i;
+                        if (i >= args.Length)
+                        {
+                            Console.WriteLine("--par value is not defined");
+                            return false;
+                        }
+
+                        int parCount;
+                        var numberValid = int.TryParse(args[i], out parCount);
+                        if (!numberValid)
+                        {
+                            Console.WriteLine("{0} is not valid number", args[i]);
+                            return false;
+                        }
+
+                        _parCount = parCount;
+                    }
+                }
+                else
+                {
+                    _output = File.Create(args[i], 1024 * 1024 * 512);
+                }
+            }
+
+            return true;
+        }
+
+        static void GenerateBlockWrapper()
+        {
+            GenerateBlock(1024 * 1024 * 128, _fileSize / 4);
         }
 
         static void GenerateBlock(long blockSize, long taskLimit)

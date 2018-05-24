@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 
 namespace BigSort.Sorting
 {
@@ -11,35 +12,80 @@ namespace BigSort.Sorting
 
         public bool IsEnded = false;
         
-        public InputFile(string fileName)
+        public InputFile(string fileName, int chunkSize = 256 * 1024 * 1024)
         {
+            _chunkSize = chunkSize;
             In = File.OpenRead(fileName);
+            new Thread(ReadNextChunk).Start();
         }
+
+        private int _chunkSize;
 
         public FileStream In;
 
-        public int GetNextChunk(byte[] array)
+        private byte[] _nextChunk;
+        private int _nextChunkRead;
+
+        private object _nextChunkFreedLock = new object();
+        private object _nextChunkReadyLock = new object();
+
+        private void ReadNextChunk()
         {
-            In.Seek(NextPos, SeekOrigin.Begin);
-            var read = In.Read(array, 0, array.Length);
-            if (read < array.Length)
+            lock (_nextChunkFreedLock)
             {
-                IsEnded = true;
-                return read;
+                    for (;;)
+                    {
+                        lock (_nextChunkReadyLock)
+                        {
+                            _nextChunk = new byte[_chunkSize];
+
+                            In.Seek(NextPos, SeekOrigin.Begin);
+                            _nextChunkRead = In.Read(_nextChunk, 0, _chunkSize);
+                            if (_nextChunkRead < _chunkSize)
+                            {
+                                In.Dispose();
+                                IsEnded = true;
+                                _nextChunk = new byte[0];
+                                _nextChunkRead = 0;
+                                Monitor.Pulse(_nextChunkReadyLock);
+                                return;
+                            }
+
+                            var lastCrIndex = _nextChunkRead;
+
+                            while (_nextChunk[--lastCrIndex] != '\r')
+                                ;
+
+                            NextPos = NextPos + lastCrIndex + 1;
+                            _nextChunkRead = lastCrIndex + 1;
+
+                            Monitor.Pulse(_nextChunkReadyLock);
+                        }
+
+                        Monitor.Wait(_nextChunkFreedLock);
+                    }
             }
+        }
 
-            var lastCrIndex = read;
+        public (int, byte[]) GetNextChunk()
+        {
+            lock (_nextChunkFreedLock)
+            {
+                lock (_nextChunkReadyLock)
+                {
+                    var nextChunkTuple = (_nextChunkRead, _nextChunk);
+                    _nextChunk = new byte[0];
+                    _nextChunkRead = 0;
 
-            while (array[--lastCrIndex] != '\r')
-                ;
-
-            NextPos = NextPos + lastCrIndex + 1;
-            return lastCrIndex + 1;
+                    Monitor.Pulse(_nextChunkFreedLock);
+                    return nextChunkTuple;
+                }
+            }
         }
 
         public void Dispose()
         {
-            In.Dispose();
+            
         }
     }
 }
