@@ -17,10 +17,10 @@ namespace BigSort.Sorting
                 ++j;
             j += 2;
 
-            var strResult = StringLess(src1, i, src2, j);
+            return StringLess(src1, i, src2, j);
 
-            if (strResult != 0)
-                return strResult;
+            //if (strResult != 0)
+            //    return strResult;
             
             var n1 = pos1;
             while (src1[n1] != '.')

@@ -32,7 +32,7 @@ namespace BigSort.Sorting {
                 return;
             
             if (_inputFile == null)
-                _inputFile = new InputFile("unsorted.txt", (int)InputFile.CHUNK_SIZE);
+                _inputFile = new InputFile("unsorted.txt", 1024 * 1024 * 1024);
 
             if (_outputFileName == null)
                 _outputFileName = "sorted.txt";
@@ -109,7 +109,7 @@ namespace BigSort.Sorting {
                     }
 
                     //if (_inputFile == null)
-                        _inputFile = new InputFile(args[i], (int)InputFile.CHUNK_SIZE);
+                        _inputFile = new InputFile(args[i], 1024 * 1024 * 1024);
                        // _outputFileName = args[i];
                     //else if (_outputFileName == null)
                     //else
@@ -190,8 +190,28 @@ namespace BigSort.Sorting {
 
                 byte[] bufferA = chunkParts[partIndexA];
                 byte[] bufferB = chunkParts[partIndexB];
-
-                return Entry.LessThan(bufferA, a.Item1, bufferB, b.Item2);
+                
+                var i1 = a.Item1;
+                while (bufferA[i1] != '.')
+                        ++i1;
+                i1 += 2;
+                
+                    var j = b.Item1;
+                while (bufferB[j] != '.')
+                        ++j;
+                j += 2;
+                
+                    while (bufferA[i1] != '\r' || bufferB[j] != '\r')
+                    {
+                        if (bufferA[i1] < bufferB[j])
+                                return -1;
+                        else if (bufferA[i1] > bufferB[j])
+                                return 1;
+                        ++i1;
+                        ++j;
+                    }
+ 
+                return 0;
             });
 
             var outputFileName = GetFileName();
