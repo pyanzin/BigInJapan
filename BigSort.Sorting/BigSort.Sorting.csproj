@@ -53,7 +53,6 @@
     <Compile Include="ChunkFile.cs" />
     <Compile Include="Entry.cs" />
     <Compile Include="InputFile.cs" />
-    <Compile Include="Merger.cs" />
     <Compile Include="NWayMerger.cs" />
     <Compile Include="OutputFile.cs" />
     <Compile Include="Program.cs" />

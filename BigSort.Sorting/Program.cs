@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace BigSort.Sorting {
     class SortingMain
     {
-        private static DateTime Start;
+        private static DateTime _start;
 
         private static InputFile _inputFile;
 
@@ -24,7 +24,7 @@ namespace BigSort.Sorting {
         {
             GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
             
-            Start = DateTime.UtcNow;
+            _start = DateTime.UtcNow;
 
             var argsCorrect = ParseArguments(args);
 
@@ -53,9 +53,7 @@ namespace BigSort.Sorting {
                 File.Move(outputChunkName, _outputFileName);
             }
 
-            Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - Start));
-            
-            Console.ReadKey();
+            Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - _start));
         }
 
         private static bool ParseArguments(string[] args)
@@ -118,29 +116,14 @@ namespace BigSort.Sorting {
                         
                     else if (_outputFileName == null)
                         _outputFileName = args[i];
-                    //else
-                    //{
-                    //    Console.WriteLine("Unknown parameter '{0}'", args[i]);
-                     //   return false;
-                    //}
                 }
             }
 
             return true;
         }
 
-    private static object _inputFileLock = new object();
+        private static object _inputFileLock = new object();
 
-        public static void SpawnMergeTask()
-        {
-            ThreadPool.QueueUserWorkItem(MergeWrapper);
-        }
-
-        public static void MergeWrapper(object threadContext)
-        {
-            Merge();
-        }
-        
         public static void InitialSortWrapper()
         {
             var sortStart = DateTime.UtcNow;
@@ -279,14 +262,6 @@ namespace BigSort.Sorting {
             }
         }
 
-        public static bool InputIsEnded()
-        {
-            lock (_inputFileLock)
-            {
-                return _inputFile.IsEnded;
-            }
-        }
-
         static object _fileNameLock = new object();
         private static int _fileNameCounter = 0;
 
@@ -296,36 +271,6 @@ namespace BigSort.Sorting {
             {
                 return $"output{_fileNameCounter++}.bin";
             }
-        }
-
-        public static void Merge()
-        {
-            var (hasChunks, chunk1, chunk2) = GetChunks();
-            if (!hasChunks)
-                return;
-
-            var outputName = GetFileName();
-
-            using (var chunkFile1 = new InputFile(chunk1.Name))
-            {
-                using (var chunkFile2 = new InputFile(chunk2.Name))
-                {
-                    using (var outputFile = new OutputFile(outputName))
-                    {
-                        var merger = new Merger(chunkFile1, chunkFile2, outputFile);
-                        merger.Merge();
-                    }
-                }
-            }
-
-            hasChunks = PutAndContinue(new ChunkFile(outputName, chunk1.Size + chunk2.Size));
-            if (hasChunks)
-                SpawnMergeTask();
-            
-            File.Delete(chunk1.Name);
-            File.Delete(chunk2.Name);   
-            
-            GC.Collect();
         }
 
         private static object _chunkFileLock = new object();
@@ -347,18 +292,7 @@ namespace BigSort.Sorting {
                 return true;
             }
         }
-
-        public static void PutChunkFile(ChunkFile chunkFile)
-        {
-            lock (_chunkFileLock)
-            {
-                if (chunkFile != null)
-                    _chunkFiles.Push(chunkFile);
-                
-                _chunkFiles = new Stack<ChunkFile>(_chunkFiles.OrderByDescending(x => x.Size));
-            }
-        }
-
+        
         public static (bool, ChunkFile, ChunkFile) GetChunks()
         {
             lock (_chunkFileLock)

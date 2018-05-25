@@ -47,7 +47,7 @@ namespace BigSort.Sorting
                 ++scanned1;
             
             var scanned2 = 0;
-            while (array1[index2 + scanned2] != '.')
+            while (array2[index2 + scanned2] != '.')
                 ++scanned2;
 
             if (scanned1 < scanned2)
