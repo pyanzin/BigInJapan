@@ -8,6 +8,8 @@ namespace BigSort.Sorting
     {
         private OutputFile _output;
         private EntryStream[] _entryStreams;
+        private (int, int)[] _frontEntries;
+        private EntryComparer _comparer;
 
         public NWayMerger(ChunkFile[] chunkFiles, OutputFile outputFile)
         {
@@ -22,25 +24,57 @@ namespace BigSort.Sorting
 
         public void Merge()
         {
-            var frontEntries = new SortedSet<(int, int)>(new EntryComparer(_entryStreams));
+            var frontList = _entryStreams.Select(e => e.GetEntry()).ToList();
 
-            foreach (var stream in _entryStreams)
-            {
-                frontEntries.Add(stream.GetEntry());
-            }
+            _comparer = new EntryComparer(_entryStreams);
+            frontList.Sort(_comparer);
 
-            while (frontEntries.Count > 0)
+            _frontEntries = frontList.ToArray();
+
+            while (_frontEntries.Length > 0)
             {
-                var smallest = frontEntries.FirstOrDefault();
+                var smallest = _frontEntries[0];
 
                 var streamIndex = (smallest.Item2 & 0xffff0000) >> 16;
-                
-                _output.WriteEntry(_entryStreams[streamIndex].Chunk, smallest.Item1, smallest.Item2 & 0xffff);
-                frontEntries.RemoveWhere(x => x.Item1 == smallest.Item1 && x.Item2 == smallest.Item2);
-                _entryStreams[streamIndex].Advance();
 
-                if (_entryStreams[streamIndex].HasEntry)
-                    frontEntries.Add(_entryStreams[streamIndex].GetEntry());
+                var entryStream = _entryStreams[streamIndex];
+                
+                _output.WriteEntry(entryStream.Chunk, smallest.Item1, smallest.Item2 & 0xffff);
+                
+                entryStream.Advance();
+
+                if (entryStream.HasEntry)
+                {
+                    _frontEntries[0] = entryStream.GetEntry();
+                    Heapify(0);
+                }
+                else
+                {
+                    var newFrontEntries = _frontEntries.ToList();
+                    newFrontEntries.RemoveAt(0);
+                    newFrontEntries.Sort(_comparer);
+                    _frontEntries = newFrontEntries.ToArray();
+                }
+            }
+        }
+
+        private void Heapify(int i)
+        {
+            int l = 2*i + 1;
+            int r = 2*i + 2;
+            int smallest = i;
+
+            if (l < _frontEntries.Length && _comparer.Compare(_frontEntries[l], _frontEntries[i]) == -1)
+                smallest = l;
+            if (r < _frontEntries.Length && _comparer.Compare(_frontEntries[r], _frontEntries[smallest]) == -1)
+                smallest = r;
+            
+            if (smallest != i)
+            {
+                var tmp = _frontEntries[i];
+                _frontEntries[i] = _frontEntries[smallest];
+                _frontEntries[smallest] = tmp;
+                Heapify(smallest);
             }
         }
     }

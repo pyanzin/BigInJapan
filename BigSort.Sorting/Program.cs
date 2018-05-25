@@ -16,9 +16,9 @@ namespace BigSort.Sorting {
 
         private static string _outputFileName;
 
-        private static long OriginalSize = 0;
-
         private static int ParCount = 1;
+
+        private static byte[] parDelims;
 
         static void Main(string[] args)
         {
@@ -37,14 +37,8 @@ namespace BigSort.Sorting {
             if (_outputFileName == null)
                 _outputFileName = "sorted.txt";
 
-            var sortTasks = new List<Task>(ParCount);
-            for (int i = 0; i < ParCount; i++)
-            {
-                sortTasks.Add(Task.Run(() => InitialSortWrapper()));
-            }
-
-            Task.WaitAll(sortTasks.ToArray());
-
+            InitialSortWrapper();
+            
             if (_chunkFiles.Count > 1)
             {
                 using (var output = new OutputFile(_outputFileName))
@@ -143,14 +137,18 @@ namespace BigSort.Sorting {
         
         public static void InitialSortWrapper()
         {
+            var sortStart = DateTime.UtcNow;
             while (!_inputFile.IsEnded)
+            {
                 GetChunkAndSort();
+                Console.WriteLine(DateTime.UtcNow - sortStart);
+                sortStart = DateTime.UtcNow;
+            }
         }
         
         public static void GetChunkAndSort()
         {
             long partCount = InputFile.CHUNK_SIZE / (1024L * 1024 * 1024) + 1;
-            long partSize = InputFile.CHUNK_SIZE / partCount;
             var chunkParts = new byte[partCount][];
             var readParts = new long[partCount];
             
@@ -159,9 +157,10 @@ namespace BigSort.Sorting {
             for (int partIndex = 0; partIndex < partCount; ++partIndex)
             {
                 var (read, chunk) = GetInputChunk();
-                
-                OriginalSize += read;
 
+                //if (parDelims == null)
+                //    FillDelims(chunk);
+                
                 if (read == 0)
                     break;
 
@@ -170,6 +169,7 @@ namespace BigSort.Sorting {
 
                 var entry = 0;
                 var i = entry;
+                byte letter = 0;
                 while (i < read)
                 {
                     if (chunk[i] == '\r')
@@ -190,28 +190,8 @@ namespace BigSort.Sorting {
 
                 byte[] bufferA = chunkParts[partIndexA];
                 byte[] bufferB = chunkParts[partIndexB];
-                
-                var i1 = a.Item1;
-                while (bufferA[i1] != '.')
-                    ++i1;
-                i1 += 2;
 
-                var j = b.Item1;
-                while (bufferB[j] != '.')
-                    ++j;
-                j += 2;
-
-                while (bufferA[i1] != '\r' || bufferB[j] != '\r')
-                {
-                    if (bufferA[i1] < bufferB[j])
-                        return -1;
-                    else if (bufferA[i1] > bufferB[j])
-                        return 1;
-                    ++i1;
-                    ++j;
-                }
-
-                return 0;
+                return Entry.LessThan(bufferA, a.Item1, bufferB, b.Item2);
             });
 
             var outputFileName = GetFileName();
@@ -231,7 +211,33 @@ namespace BigSort.Sorting {
             
             GC.Collect();
         }
-        
+
+        private static void FillDelims(byte[] chunk)
+        {
+            var len = 2048;
+            if (chunk.Length < len)
+                len = chunk.Length;
+
+            byte min = byte.MaxValue, max = byte.MinValue;
+            
+            for (int i = 0; i < len; i++)
+            {
+                if (chunk[i] < min)
+                    min = chunk[i];
+                if (chunk[i] > max)
+                    max = chunk[i];
+            }
+
+            var rangeSize = (max - min) / (ParCount - 1);
+            
+            parDelims = new byte[ParCount - 1];
+            
+            for (int i = 1; i < ParCount; ++i)
+            {
+                parDelims[i] = (byte)(min + (i * rangeSize));
+            }
+        }
+
         public static (int, byte[]) GetInputChunk()
         {
             lock (_inputFileLock)
