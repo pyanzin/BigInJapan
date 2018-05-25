@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 
 namespace BigSort.Generator {
     class Program {
+        private const int BLOCK_SIZE = 1024 * 1024 * 256;
 
-        private static int MaxStringLength = 1024;
+        private static int _maxStringLength = 1024;
 
         private static FileStream _output;
 
@@ -91,6 +92,26 @@ namespace BigSort.Generator {
 
                         _parCount = parCount;
                     }
+                    
+                    if (args[i] == "--len")
+                    {
+                        ++i;
+                        if (i >= args.Length)
+                        {
+                            Console.WriteLine("--len value is not defined");
+                            return false;
+                        }
+
+                        int len;
+                        var numberValid = int.TryParse(args[i], out len);
+                        if (!numberValid)
+                        {
+                            Console.WriteLine("{0} is not valid number", args[i]);
+                            return false;
+                        }
+
+                        _maxStringLength = len;
+                    }
                 }
                 else
                 {
@@ -103,18 +124,30 @@ namespace BigSort.Generator {
 
         static void GenerateBlockWrapper()
         {
-            GenerateBlock(1024 * 1024 * 128, _fileSize / _parCount);
+            GenerateBlock(BLOCK_SIZE, _fileSize / _parCount);
         }
 
         static void GenerateBlock(long blockSize, long taskLimit)
         {
             long totallyGenerated = 0;
-            var block = new byte[blockSize + 1024 + 64];
+            var block = new byte[blockSize + _maxStringLength + 64];
             int blockIndex = 0;
             Random rnd = new Random();
 
+            var duplicatedBlock = new byte[_maxStringLength + 64];
+            var duplicateLength = 0;
+
             for (;;)
             {
+                bool dropDuplicate = rnd.Next() % 32 == 0;
+                if (dropDuplicate)
+                {
+                    Array.Copy(duplicatedBlock, 0, block, blockIndex, duplicateLength);
+                    blockIndex += duplicateLength;
+                }
+
+                var prevIndex = blockIndex;
+                
                 String numberString = rnd.Next().ToString();
 
                 var numberBytes = Encoding.ASCII.GetBytes(numberString);
@@ -127,7 +160,7 @@ namespace BigSort.Generator {
                 block[++blockIndex] = (byte) ' ';
                 ++blockIndex;
 
-                var stringPartSize = rnd.Next(3, MaxStringLength);
+                var stringPartSize = rnd.Next(3, _maxStringLength);
 
                 byte[] stringPartArray = new byte[stringPartSize];
                 
@@ -143,7 +176,16 @@ namespace BigSort.Generator {
 
                 blockIndex += stringPartSize;
 
-                totallyGenerated += stringPartSize + 2;
+                totallyGenerated += stringPartSize;
+                
+                
+                bool produceDuplicate = rnd.Next() % 32 == 0;
+                if (produceDuplicate)
+                {
+                    var entryLength = blockIndex - prevIndex;
+                    Array.Copy(block, prevIndex, duplicatedBlock, 0, entryLength);
+                    duplicateLength = 0;
+                }
 
                 if (totallyGenerated >= taskLimit)
                 {

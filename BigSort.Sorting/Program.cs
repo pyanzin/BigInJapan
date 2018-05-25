@@ -47,6 +47,11 @@ namespace BigSort.Sorting {
                     merger.Merge();
                 }
             }
+            else
+            {
+                var outputChunkName = _chunkFiles.Pop().Name;
+                File.Move(outputChunkName, _outputFileName);
+            }
 
             Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - Start));
             
@@ -108,10 +113,11 @@ namespace BigSort.Sorting {
                         return false;
                     }
 
-                    //if (_inputFile == null)
+                    if (_inputFile == null)
                         _inputFile = new InputFile(args[i], 1024 * 1024 * 1024);
-                       // _outputFileName = args[i];
-                    //else if (_outputFileName == null)
+                        
+                    else if (_outputFileName == null)
+                        _outputFileName = args[i];
                     //else
                     //{
                     //    Console.WriteLine("Unknown parameter '{0}'", args[i]);
@@ -151,15 +157,19 @@ namespace BigSort.Sorting {
             long partCount = InputFile.CHUNK_SIZE / (1024L * 1024 * 1024) + 1;
             var chunkParts = new byte[partCount][];
             var readParts = new long[partCount];
-            
-            var entries = new List<(int, int)>(1024 * 1024);
+
+            var entryLists = new List<(int, int)>[ParCount];
+            for (int i = 0; i < ParCount; i++)
+            {
+                entryLists[i] = new List<(int, int)>();
+            }
 
             for (int partIndex = 0; partIndex < partCount; ++partIndex)
             {
                 var (read, chunk) = GetInputChunk();
 
-                //if (parDelims == null)
-                //    FillDelims(chunk);
+                if (parDelims == null)
+                    FillDelims(chunk);
                 
                 if (read == 0)
                     break;
@@ -169,60 +179,59 @@ namespace BigSort.Sorting {
 
                 var entry = 0;
                 var i = entry;
-                byte letter = 0;
+                byte firstLetter = 0;
                 while (i < read)
                 {
-                    if (chunk[i] == '\r')
+                    var letter = chunk[i];
+                    if (letter == '.' && firstLetter == 0)
+                        firstLetter = chunk[i + 2];
+                    if (letter == '\r')
                     {
                         int size = i - entry + 1;
-                        entries.Add((entry, (partIndex << 16) | size));
+                        for (int deli = 0; deli < parDelims.Length; ++deli)
+                        {
+                            if (firstLetter < parDelims[deli])
+                            {
+                                entryLists[deli].Add((entry, (partIndex << 16) | size));
+                                break;
+                            }
+                        }
+
+                        firstLetter = 0;
                         entry = i + 1;
                     }
 
                     ++i;
                 }
             }
-            
-            entries.Sort((a, b) =>
+
+            var sortTasks = entryLists.Select(el => new Task(() => el.Sort((a, b) =>
             {
-                int partIndexA = (int)(a.Item2 & 0xffff0000) >> 16;
-                int partIndexB = (int)(b.Item2 & 0xffff0000) >> 16;
+                int partIndexA = (int) (a.Item2 & 0xffff0000) >> 16;
+                int partIndexB = (int) (b.Item2 & 0xffff0000) >> 16;
 
                 byte[] bufferA = chunkParts[partIndexA];
                 byte[] bufferB = chunkParts[partIndexB];
-                
-                var i1 = a.Item1;
-                while (bufferA[i1] != '.')
-                        ++i1;
-                i1 += 2;
-                
-                    var j = b.Item1;
-                while (bufferB[j] != '.')
-                        ++j;
-                j += 2;
-                
-                    while (bufferA[i1] != '\r' || bufferB[j] != '\r')
-                    {
-                        if (bufferA[i1] < bufferB[j])
-                                return -1;
-                        else if (bufferA[i1] > bufferB[j])
-                                return 1;
-                        ++i1;
-                        ++j;
-                    }
- 
-                return 0;
-            });
+
+                return Entry.LessThan(bufferA, a.Item1, bufferB, b.Item1);
+
+            }), TaskCreationOptions.LongRunning)).ToArray();
+
+            foreach (var sortTask in sortTasks)
+                sortTask.Start();
+
+            Task.WaitAll(sortTasks);
 
             var outputFileName = GetFileName();
 
-            using (var output = new OutputFile(outputFileName))
+            using (var output = new OutputFile(outputFileName, 256 * 1024 * 1024))
             {
-                foreach (var e in entries)
-                {
-                    int partIndex = (int)(e.Item2 & 0xffff0000) >> 16;
-                    output.WriteEntry(chunkParts[partIndex], e.Item1, e.Item2 & 0xffff);
-                }
+                foreach (var el in entryLists)
+                    foreach (var e in el)
+                    {
+                        int partIndex = (int)(e.Item2 & 0xffff0000) >> 16;
+                        output.WriteEntry(chunkParts[partIndex], e.Item1, e.Item2 & 0xffff);
+                    }
             }
             
             PutAndContinue(new ChunkFile(outputFileName, readParts.Sum()));
@@ -242,20 +251,24 @@ namespace BigSort.Sorting {
             
             for (int i = 0; i < len; i++)
             {
+                if (chunk[i] == '\n' || chunk[i] == '\r')
+                    continue;
                 if (chunk[i] < min)
                     min = chunk[i];
                 if (chunk[i] > max)
                     max = chunk[i];
             }
 
-            var rangeSize = (max - min) / (ParCount - 1);
+            var rangeSize = (max - min) / (ParCount);
             
-            parDelims = new byte[ParCount - 1];
+            parDelims = new byte[ParCount];
             
             for (int i = 1; i < ParCount; ++i)
             {
-                parDelims[i] = (byte)(min + (i * rangeSize));
+                parDelims[i - 1] = (byte)(min + (i * rangeSize));
             }
+
+            parDelims[ParCount - 1] = byte.MaxValue;
         }
 
         public static (int, byte[]) GetInputChunk()
