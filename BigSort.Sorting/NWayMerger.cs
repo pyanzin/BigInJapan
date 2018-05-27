@@ -100,8 +100,6 @@ namespace BigSort.Sorting
     }
     public class EntryStream
     {
-        private InputFile _file;
-
         public EntryStream(InputFile file, int id)
         {
             In = file;

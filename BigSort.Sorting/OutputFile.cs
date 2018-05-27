@@ -92,9 +92,11 @@ namespace BigSort.Sorting
         
         public void Dispose()
         {
-            lock (_nextChunkReadyLock)
+            lock (_bufferFreedLock)
             {
-                lock (_bufferFreedLock)
+                if (_internalBuffer != null)
+                    Monitor.Wait(_bufferFreedLock);
+                lock (_nextChunkReadyLock)
                 {
                     if (_outputBuffer != null)
                     {
@@ -106,6 +108,7 @@ namespace BigSort.Sorting
                     Monitor.Pulse(_nextChunkReadyLock);
                 }
             }
+
             _outputThread.Join();
         }
     }

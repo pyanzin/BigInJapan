@@ -67,7 +67,7 @@ namespace BigSort.Sorting {
                         ++i;
                         if (i >= args.Length)
                         {
-                            Console.WriteLine("--buffer value is not defined");
+                            Console.WriteLine("--buf value is not defined");
                             return false;
                         }
 
@@ -290,17 +290,6 @@ namespace BigSort.Sorting {
                     return false;
 
                 return true;
-            }
-        }
-        
-        public static (bool, ChunkFile, ChunkFile) GetChunks()
-        {
-            lock (_chunkFileLock)
-            {
-                if (_chunkFiles.Count < 2)
-                    return (false, null, null);
-
-                return (true, _chunkFiles.Pop(), _chunkFiles.Pop());
             }
         }
         
