@@ -37,12 +37,15 @@ namespace BigSort.Sorting
             {
                 for (;;)
                 {
+                    if (_nextChunk != null)
+                        Monitor.Wait(_nextChunkFreedLock);
                     lock (_nextChunkReadyLock)
                     {
                         _nextChunk = new byte[_chunkSize];
 
                         In.Seek(NextPos, SeekOrigin.Begin);
                         _nextChunkRead = In.Read(_nextChunk, 0, _chunkSize);
+                        
                         if (_nextChunkRead < _chunkSize)
                         {
                             In.Dispose();
@@ -61,8 +64,6 @@ namespace BigSort.Sorting
 
                         Monitor.Pulse(_nextChunkReadyLock);
                     }
-
-                    Monitor.Wait(_nextChunkFreedLock);
                 }
             }
         }

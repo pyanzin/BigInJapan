@@ -226,29 +226,29 @@ namespace BigSort.Sorting {
 
         private static void FillDelims(byte[] chunk)
         {
-            var len = 2048;
+            var len = 1024 * 1024;
             if (chunk.Length < len)
                 len = chunk.Length;
 
-            byte min = byte.MaxValue, max = byte.MinValue;
+            int[] dist = new int[byte.MaxValue];
             
-            for (int i = 0; i < len; i++)
-            {
-                if (chunk[i] == '\n' || chunk[i] == '\r')
-                    continue;
-                if (chunk[i] < min)
-                    min = chunk[i];
-                if (chunk[i] > max)
-                    max = chunk[i];
-            }
+            for (int i = 0; i < len; ++i)
+                dist[chunk[i]] += 1;
 
-            var rangeSize = (max - min) / (ParCount);
+            int bucketSize = len / ParCount;
             
             parDelims = new byte[ParCount];
-            
-            for (int i = 1; i < ParCount; ++i)
+
+            int symbolCount = 0;
+            int delimIndex = 0;
+            for (byte i = 0; i < byte.MaxValue; ++i)
             {
-                parDelims[i - 1] = (byte)(min + (i * rangeSize));
+                symbolCount += dist[i];
+                if (symbolCount >= bucketSize)
+                {
+                    parDelims[delimIndex++] = i;
+                    symbolCount = 0;
+                }
             }
 
             parDelims[ParCount - 1] = byte.MaxValue;
@@ -301,6 +301,36 @@ namespace BigSort.Sorting {
                     return (false, null, null);
 
                 return (true, _chunkFiles.Pop(), _chunkFiles.Pop());
+            }
+        }
+        
+        public static void CustomCopy(byte[] src, int srcIndex, byte[] dest, int destIndex, int length)
+        {
+            unsafe
+            {
+                fixed (byte* srcPtr = src)
+                {
+                    fixed (byte* destPtr = dest)
+                    {
+                        Int64* stridedSrc = (Int64*) (srcPtr + srcIndex);
+                        int strideCount = length / sizeof(Int64);
+
+                        Int64* stridedDest = (Int64*) (destPtr + destIndex);
+
+                        Int64* stridedSrcEnd = stridedSrc + strideCount;
+                        
+                        for (; stridedSrc < stridedSrcEnd; ++stridedSrc, ++stridedDest)
+                            *stridedDest = *stridedSrc;
+
+                        int restSize = length % (sizeof(Int64));
+
+                        byte* srcRest = (byte*) stridedSrc;
+                        byte* destRest = (byte*) stridedDest;
+                        byte* destRestEnd = destRest + restSize;
+                        for (; destRest < destRestEnd; ++srcRest, ++destRest)
+                            *destRest = *srcRest;
+                    }
+                }
             }
         }
     }

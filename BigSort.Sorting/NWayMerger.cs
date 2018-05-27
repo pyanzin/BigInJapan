@@ -16,7 +16,7 @@ namespace BigSort.Sorting
             _entryStreams = new EntryStream[chunkFiles.Length];
             for (int i = 0; i < chunkFiles.Length; ++i)
             {
-                _entryStreams[i] = new EntryStream(new InputFile(chunkFiles[i].Name), i);
+                _entryStreams[i] = new EntryStream(new InputFile(chunkFiles[i].Name, 128 * 1024 * 1024), i);
 
             }
             _output = outputFile;
