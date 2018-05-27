@@ -13,10 +13,14 @@ namespace BigSort.Sorting
 
         public NWayMerger(ChunkFile[] chunkFiles, OutputFile outputFile)
         {
+            long inputFileBuffer = (long)(BigSort.ChunkSize / chunkFiles.Length * 0.4);
+            if (inputFileBuffer > BigSort.OneGb)
+                inputFileBuffer = BigSort.OneGb;
+            
             _entryStreams = new EntryStream[chunkFiles.Length];
             for (int i = 0; i < chunkFiles.Length; ++i)
             {
-                _entryStreams[i] = new EntryStream(new InputFile(chunkFiles[i].Name, 128 * 1024 * 1024), i);
+                _entryStreams[i] = new EntryStream(new InputFile(chunkFiles[i].Name, (int)inputFileBuffer), i);
 
             }
             _output = outputFile;

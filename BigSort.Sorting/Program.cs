@@ -8,40 +8,36 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace BigSort.Sorting {
-    class SortingMain
+    class BigSort
     {
         private static DateTime _start;
-
         private static InputFile _inputFile;
-
+        private static string _inputFileName;
         private static string _outputFileName;
+        private static byte[] _parDelims;
+        
+        public const long OneGb = 1024 * 1024 * 1024;
+        
+        public static long ChunkSize;
 
-        private static int ParCount = 1;
-
-        private static byte[] parDelims;
+        public static int ParCount;
 
         static void Main(string[] args)
         {
-            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            var argsValid = Configure(args);
             
-            _start = DateTime.UtcNow;
-
-            var argsCorrect = ParseArguments(args);
-
-            if (!argsCorrect)
+            if (!argsValid)
                 return;
-            
-            if (_inputFile == null)
-                _inputFile = new InputFile("unsorted.txt", 1024 * 1024 * 1024);
 
-            if (_outputFileName == null)
-                _outputFileName = "sorted.txt";
-
-            InitialSortWrapper();
+            SortChunks();
             
             if (_chunkFiles.Count > 1)
             {
-                using (var output = new OutputFile(_outputFileName))
+                long outputBufferSize = (int) (ChunkSize * 0.05);
+                if (outputBufferSize > OneGb)
+                    outputBufferSize = OneGb;
+                
+                using (var output = new OutputFile(_outputFileName, (int)outputBufferSize))
                 {
                     var merger = new NWayMerger(_chunkFiles.ToArray(), output);
                     merger.Merge();
@@ -49,11 +45,36 @@ namespace BigSort.Sorting {
             }
             else
             {
-                var outputChunkName = _chunkFiles.Pop().Name;
+                var outputChunkName = _chunkFiles.First().Name;
                 File.Move(outputChunkName, _outputFileName);
             }
 
             Console.WriteLine("Processing completed in {0}", (DateTime.UtcNow - _start));
+        }
+
+        private static bool Configure(string[] args)
+        {
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+
+            ParCount = Environment.ProcessorCount;
+
+            ChunkSize = OneGb * 8;
+
+            _start = DateTime.UtcNow;
+
+            var argsCorrect = ParseArguments(args);
+
+            if (!argsCorrect)
+                return false;
+
+            if (_inputFileName == null)
+                _inputFileName = "unsorted.txt";
+
+            _inputFile = new InputFile(_inputFileName, (int)OneGb);
+
+            if (_outputFileName == null)
+                _outputFileName = "sorted.txt";
+            return true;
         }
 
         private static bool ParseArguments(string[] args)
@@ -79,7 +100,7 @@ namespace BigSort.Sorting {
                             return false;
                         }
 
-                        InputFile.CHUNK_SIZE = buffer * 1024L * 1024;
+                        BigSort.ChunkSize = buffer * 1024L * 1024;
                         continue;
                     }
                     
@@ -111,9 +132,8 @@ namespace BigSort.Sorting {
                         return false;
                     }
 
-                    if (_inputFile == null)
-                        _inputFile = new InputFile(args[i], 1024 * 1024 * 1024);
-                        
+                    if (_inputFileName == null)
+                        _inputFileName = args[i];
                     else if (_outputFileName == null)
                         _outputFileName = args[i];
                 }
@@ -124,7 +144,7 @@ namespace BigSort.Sorting {
 
         private static object _inputFileLock = new object();
 
-        public static void InitialSortWrapper()
+        public static void SortChunks()
         {
             var sortStart = DateTime.UtcNow;
             while (!_inputFile.IsEnded)
@@ -137,7 +157,7 @@ namespace BigSort.Sorting {
         
         public static void GetChunkAndSort()
         {
-            long partCount = InputFile.CHUNK_SIZE / (1024L * 1024 * 1024) + 1;
+            long partCount = ChunkSize / OneGb + 1;
             var chunkParts = new byte[partCount][];
             var readParts = new long[partCount];
 
@@ -151,7 +171,7 @@ namespace BigSort.Sorting {
             {
                 var (read, chunk) = GetInputChunk();
 
-                if (parDelims == null)
+                if (_parDelims == null)
                     FillDelims(chunk);
                 
                 if (read == 0)
@@ -160,8 +180,8 @@ namespace BigSort.Sorting {
                 chunkParts[partIndex] = chunk;
                 readParts[partIndex] = read;
 
-                var entry = 0;
-                var i = entry;
+                int entry = 0;
+                int i = entry;
                 byte firstLetter = 0;
                 while (i < read)
                 {
@@ -171,9 +191,9 @@ namespace BigSort.Sorting {
                     if (letter == '\r')
                     {
                         int size = i - entry + 1;
-                        for (int deli = 0; deli < parDelims.Length; ++deli)
+                        for (int deli = 0; deli < _parDelims.Length; ++deli)
                         {
-                            if (firstLetter < parDelims[deli])
+                            if (firstLetter < _parDelims[deli])
                             {
                                 entryLists[deli].Add((entry, (partIndex << 16) | size));
                                 break;
@@ -207,7 +227,7 @@ namespace BigSort.Sorting {
 
             var outputFileName = GetFileName();
 
-            using (var output = new OutputFile(outputFileName, 256 * 1024 * 1024))
+            using (var output = new OutputFile(outputFileName, (int)OneGb / 4))
             {
                 foreach (var el in entryLists)
                     foreach (var e in el)
@@ -218,8 +238,6 @@ namespace BigSort.Sorting {
             }
             
             PutAndContinue(new ChunkFile(outputFileName, readParts.Sum()));
-
-            //SpawnMergeTask();
             
             GC.Collect();
         }
@@ -237,7 +255,7 @@ namespace BigSort.Sorting {
 
             int bucketSize = len / ParCount;
             
-            parDelims = new byte[ParCount];
+            _parDelims = new byte[ParCount];
 
             int symbolCount = 0;
             int delimIndex = 0;
@@ -246,12 +264,12 @@ namespace BigSort.Sorting {
                 symbolCount += dist[i];
                 if (symbolCount >= bucketSize)
                 {
-                    parDelims[delimIndex++] = i;
+                    _parDelims[delimIndex++] = i;
                     symbolCount = 0;
                 }
             }
 
-            parDelims[ParCount - 1] = byte.MaxValue;
+            _parDelims[ParCount - 1] = byte.MaxValue;
         }
 
         public static (int, byte[]) GetInputChunk()
@@ -273,24 +291,12 @@ namespace BigSort.Sorting {
             }
         }
 
-        private static object _chunkFileLock = new object();
         
-        private static Stack<ChunkFile> _chunkFiles = new Stack<ChunkFile>();
+        private static List<ChunkFile> _chunkFiles = new List<ChunkFile>();
 
-        public static bool PutAndContinue(ChunkFile chunkFile)
+        public static void PutAndContinue(ChunkFile chunkFile)
         {
-            lock (_chunkFileLock)
-            {
-                if (chunkFile != null)
-                    _chunkFiles.Push(chunkFile);
-
-                _chunkFiles = new Stack<ChunkFile>(_chunkFiles.OrderByDescending(x => x.Size));
-                
-                if (_chunkFiles.Count < 2)
-                    return false;
-
-                return true;
-            }
+            _chunkFiles.Add(chunkFile);
         }
         
         public static void CustomCopy(byte[] src, int srcIndex, byte[] dest, int destIndex, int length)

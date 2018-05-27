@@ -6,8 +6,6 @@ namespace BigSort.Sorting
 {
     public class InputFile : IDisposable
     {
-        public static long CHUNK_SIZE = 1024L * 1024 * 1024;
-
         public long NextPos = 0;
 
         public bool IsEnded = false;

@@ -46,7 +46,7 @@ namespace BigSort.Sorting
 
                         _outputBuffer = new byte[_bufferSize];
                         _bufferIndex = 0;
-                        SortingMain.CustomCopy(src, pos, _outputBuffer, 0, size);
+                        BigSort.CustomCopy(src, pos, _outputBuffer, 0, size);
                         _bufferIndex += size;
 
                         Monitor.Pulse(_nextChunkReadyLock);
@@ -55,7 +55,7 @@ namespace BigSort.Sorting
             }
             else
             {
-                SortingMain.CustomCopy(src, pos, _outputBuffer, _bufferIndex, size);
+                BigSort.CustomCopy(src, pos, _outputBuffer, _bufferIndex, size);
                 _bufferIndex += size;
             }
         }
