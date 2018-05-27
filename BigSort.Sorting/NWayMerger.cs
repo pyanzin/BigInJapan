@@ -107,27 +107,27 @@ namespace BigSort.Sorting
         public EntryStream(InputFile file, int id)
         {
             In = file;
-            _id = id;
+            _streamId = id;
             Advance();
         }
 
-        public InputFile In { get; set; }
+        private InputFile In { get; set; }
 
         public byte[] Chunk;
 
-        public int Read;
+        private int _read;
 
-        public int Pos;
+        private int _pos;
 
-        public int Next;
+        private int _next;
 
         public bool HasEntry = true;
         
-        private int _id;
+        private readonly int _streamId;
 
         public void Advance()
         {
-            if (Next >= Read)
+            if (_next >= _read)
             {
                 if (In.IsEnded)
                 {
@@ -135,20 +135,20 @@ namespace BigSort.Sorting
                     return;
                 }
 
-                (Read, Chunk) = In.GetNextChunk();
+                (_read, Chunk) = In.GetNextChunk();
 
-                Pos = 0;
-                Next = 0;
+                _pos = 0;
+                _next = 0;
             }
 
-            Pos = Next;
-            while (Chunk[Next++] != '\r')
+            _pos = _next;
+            while (Chunk[_next++] != '\r')
                 ;
         }
 
         public (int, int) GetEntry()
         {
-            var value = (Pos, (_id << 16) | Next - Pos);
+            var value = (_pos, (_streamId << 16) | _next - _pos);
             return value;
         }
 

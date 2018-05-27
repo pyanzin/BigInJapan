@@ -33,7 +33,7 @@ namespace BigSort.Sorting {
             
             if (_chunkFiles.Count > 1)
             {
-                long outputBufferSize = (int) (ChunkSize * 0.05);
+                long outputBufferSize = (long) (ChunkSize * 0.075);
                 if (outputBufferSize > OneGb)
                     outputBufferSize = OneGb;
                 
