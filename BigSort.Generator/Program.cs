@@ -167,7 +167,7 @@ namespace BigSort.Generator {
                 
                 rnd.NextBytes(stringPartArray);
                 for (int i = 0; i < stringPartArray.Length; i++)
-                    stringPartArray[i] = (byte) (stringPartArray[i] % 52 + (byte) 'A');
+                    stringPartArray[i] = (byte) (stringPartArray[i] % 93 + (byte)' ');
                 
                 stringPartArray[stringPartSize - 2] = (byte) '\n';
                 stringPartArray[stringPartSize - 1] = (byte) '\r';
