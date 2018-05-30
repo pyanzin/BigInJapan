@@ -33,6 +33,7 @@ namespace BigSort.Sorting {
             
             if (_chunkFiles.Count > 1)
             {
+                Console.WriteLine("Merge stage started");
                 long outputBufferSize = (long) (ChunkSize * 0.075);
                 if (outputBufferSize > OneGb)
                     outputBufferSize = OneGb;
@@ -41,6 +42,11 @@ namespace BigSort.Sorting {
                 {
                     var merger = new NWayMerger(_chunkFiles.ToArray(), output);
                     merger.Merge();
+                }
+
+                foreach (var chunkFile in _chunkFiles)
+                {
+                    File.Delete(chunkFile.Name);
                 }
             }
             else
@@ -141,10 +147,11 @@ namespace BigSort.Sorting {
         public static void SortChunks()
         {
             var sortStart = DateTime.UtcNow;
+            int chunkNumber = 0;
             while (!_inputFile.IsEnded)
             {
                 GetChunkAndSort();
-                Console.WriteLine(DateTime.UtcNow - sortStart);
+                Console.WriteLine("Chunk {0} processed in {1}",chunkNumber++, DateTime.UtcNow - sortStart);
                 sortStart = DateTime.UtcNow;
             }
         }
