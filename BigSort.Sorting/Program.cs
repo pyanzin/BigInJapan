@@ -126,12 +126,6 @@ namespace BigSort.Sorting {
                 }
                 else
                 {
-                    if (!File.Exists(args[i]))
-                    {
-                        Console.WriteLine("File {0} not found", args[i]);
-                        return false;
-                    }
-
                     if (_inputFileName == null)
                         _inputFileName = args[i];
                     else if (_outputFileName == null)
@@ -191,14 +185,10 @@ namespace BigSort.Sorting {
                     if (letter == '\r')
                     {
                         int size = i - entry + 1;
-                        for (int deli = 0; deli < _parDelims.Length; ++deli)
-                        {
-                            if (firstLetter < _parDelims[deli])
-                            {
-                                entryLists[deli].Add((entry, (partIndex << 16) | size));
-                                break;
-                            }
-                        }
+
+                        byte deli = _parDelims[firstLetter];
+
+                        entryLists[deli].Add((entry, (partIndex << 16) | size));
 
                         firstLetter = 0;
                         entry = i + 1;
@@ -208,6 +198,8 @@ namespace BigSort.Sorting {
                 }
             }
 
+            ;
+            
             var sortTasks = entryLists.Select(el => new Task(() => el.Sort((a, b) =>
             {
                 int partIndexA = (int) (a.Item2 & 0xffff0000) >> 16;
@@ -255,21 +247,20 @@ namespace BigSort.Sorting {
 
             int bucketSize = len / ParCount;
             
-            _parDelims = new byte[ParCount];
+            _parDelims = new byte[byte.MaxValue];
 
             int symbolCount = 0;
-            int delimIndex = 0;
+            byte delimIndex = 0;
             for (byte i = 0; i < byte.MaxValue; ++i)
             {
                 symbolCount += dist[i];
+                _parDelims[i] = delimIndex;
                 if (symbolCount >= bucketSize)
                 {
-                    _parDelims[delimIndex++] = i;
+                    ++delimIndex;
                     symbolCount = 0;
                 }
             }
-
-            _parDelims[ParCount - 1] = byte.MaxValue;
         }
 
         public static (int, byte[]) GetInputChunk()
